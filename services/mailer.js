@@ -36,7 +36,7 @@ async function sendReportEmail(analysisResult, recipientEmail) {
                     <a href="${job.link}" style="color: #007bff; text-decoration: none; font-weight: bold;">${job.title}</a>
                     <div style="font-size: 14px; color: #555;">${job.company}</div>
                 </td>
-                <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${job.match_score}/100</td>
+                <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${job.match_score}/10</td>
                 <td style="padding: 10px; border-bottom: 1px solid #ddd;">${job.reason}</td>
             </tr>
         `

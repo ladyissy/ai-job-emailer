@@ -63,8 +63,18 @@ const runJobSearchProcess = async () => {
     // 打印出最匹配的几个职位，便于调试
     console.log(JSON.stringify(analysisResult, null, 2));
 
+    console.log(
+      `[Scheduler] AI 返回了 ${analysisResult.ranked_jobs.length} 个职位，正在筛选前 10 名以生成最终报告。`
+    );
+    const sortedJobs = analysisResult.ranked_jobs.sort(
+      (a, b) => b.match_score - a.match_score
+    );
+    const top10Jobs = sortedJobs.slice(0, 10);
+
+    const finalReport = { ranked_jobs: top10Jobs };
+
     console.log("[Scheduler] 步骤 3: 生成求职报告，发送报告邮件...");
-    await sendReportEmail(analysisResult, targetEmail);
+    await sendReportEmail(finalReport, targetEmail);
 
     console.log("[Scheduler] 本次任务流程结束。");
     console.log("--------------------------------------------------");
