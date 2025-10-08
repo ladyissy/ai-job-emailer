@@ -49,6 +49,9 @@ const analyzeJobsWithAI = async (jobListings) => {
       return null;
     }
 
+    const models = genAI.ListModels();
+    console.log("[AI Analyzer] Available models:", models);
+
     const model = genAI.getGenerativeModel({
       model: "gemini-pro", // Using stable model instead of preview
     });
