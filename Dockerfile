@@ -1,16 +1,45 @@
 # Step 1: Start with an official Node.js image
 FROM node:18-slim
 
-# Step 2: Install minimal dependencies needed for Puppeteer's browser
-# This list is much shorter than installing the full Google Chrome.
+# Step 2: Install a more comprehensive list of dependencies for Puppeteer
 RUN apt-get update \
     && apt-get install -y \
-    libnss3 \
-    libxss1 \
+    ca-certificates \
+    fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libc6 \
+    libcairo2 \
+    libcups2 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgbm1 \
+    libgcc1 \
+    libglib2.0-0 \
     libgtk-3-0 \
-    libgbm-dev \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libstdc++6 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    lsb-release \
+    wget \
+    xdg-utils \
     --no-install-recommends
 
 # Step 3: Set the working directory inside the container
@@ -23,14 +52,19 @@ COPY package*.json ./
 RUN npm install
 
 # Step 6: Use Puppeteer's own command to download a compatible browser
-# This is the key change to solve the problem.
 RUN npx puppeteer browsers install chrome
+
+# --- KEY CHANGE: Explicitly tell Puppeteer where to find the browser ---
+# This makes the setup robust and independent of unstable build caches.
+# NOTE: The version number here corresponds to the one specified by the puppeteer version in package.json.
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/src/app/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux/chrome
 
 # Step 7: Copy the rest of your application's code
 COPY . .
 
-# Note: The CMD is not strictly necessary for Render Cron Jobs,
-# as the "Start Command" in the UI will override it.
-# But it's good practice to have it.
+# Step 8: (Optional) Debugging step to verify file presence
+RUN echo "--- Listing project files ---" && ls -la && echo "-------------------------"
+
+# The command to run the application (overridden by Render's UI but good practice)
 CMD [ "node", "-e", "require('./services/scheduler').runJobSearchProcess()" ]
 
