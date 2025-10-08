@@ -50,7 +50,7 @@ const analyzeJobsWithAI = async (jobListings) => {
     }
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest", // Using stable model instead of preview
+      model: "gemini-2.5-pro", // Using stable model instead of preview
     });
 
     // 2. 解码 Base64 简历内容
