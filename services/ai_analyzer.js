@@ -85,6 +85,13 @@ const analyzeJobsWithAI = async (jobListings) => {
 
     // 5. 解析 AI 返回的 JSON 结果
     console.log("[AI Analyzer] AI response received. Parsing JSON...");
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch && jsonMatch[1]) {
+      text = jsonMatch[1];
+    }
+
+    // Trim any extra whitespace that might interfere with parsing
+    text = text.trim();
     const report = JSON.parse(text);
 
     console.log(
