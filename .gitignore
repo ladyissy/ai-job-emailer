@@ -1,0 +1,12 @@
+# Dependencies
+/node_modules
+
+# Configuration and sensitive data
+config.json
+.env
+
+# Uploaded files
+/uploads
+
+# macOS specific
+.DS_Store
