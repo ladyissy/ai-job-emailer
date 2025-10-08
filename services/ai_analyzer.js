@@ -26,27 +26,31 @@ const analyzeJobsWithAI = async (jobListings) => {
     const resumeBase64 = process.env.RESUME_BASE64;
 
     if (!apiKey) {
-      console.error("[AI Analyzer] Error: GEMINI_API_KEY environment variable is not set");
+      console.error(
+        "[AI Analyzer] Error: GEMINI_API_KEY environment variable is not set"
+      );
       return null;
     }
 
     if (!resumeBase64) {
-      console.error("[AI Analyzer] Error: RESUME_BASE64 environment variable is not set");
+      console.error(
+        "[AI Analyzer] Error: RESUME_BASE64 environment variable is not set"
+      );
       return null;
     }
 
     // 2. Initialize Gemini client with validation
     console.log("[AI Analyzer] Initializing Gemini client...");
     const genAI = new GoogleGenerativeAI(apiKey);
-    
+
     // Verify API key format (basic check)
-    if (!apiKey.startsWith("AI") || apiKey.length < 40) {
+    if (!apiKey.startsWith("AI")) {
       console.error("[AI Analyzer] Error: Invalid Gemini API key format");
       return null;
     }
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-pro",  // Using stable model instead of preview
+      model: "gemini-pro", // Using stable model instead of preview
     });
 
     // 2. 解码 Base64 简历内容
