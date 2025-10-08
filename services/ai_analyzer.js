@@ -49,11 +49,8 @@ const analyzeJobsWithAI = async (jobListings) => {
       return null;
     }
 
-    const models = genAI.ListModels();
-    console.log("[AI Analyzer] Available models:", models);
-
     const model = genAI.getGenerativeModel({
-      model: "gemini-pro", // Using stable model instead of preview
+      model: "gemini-flash-latest", // Using stable model instead of preview
     });
 
     // 2. 解码 Base64 简历内容
@@ -63,17 +60,21 @@ const analyzeJobsWithAI = async (jobListings) => {
 
     // 3. 构建详细的提示 (Prompt)
     const prompt = `
-            Based on the following resume:
-            --- START RESUME ---
+            You are a professional career consultant. Your task is to analyze a resume and a list of job openings.
+            Based ONLY on the provided resume, analyze each job and provide a score and reason.
+
+            Resume:
+            ---
             ${resumeText}
-            --- END RESUME ---
+            ---
 
-            Please act as a professional career consultant. Analyze the following list of job openings. For each job, provide a "matchScore" from 0 to 100 indicating how well my resume matches the job requirements, and a brief, one-sentence "reason" explaining your score.
-
-            The list of jobs is provided in this JSON format:
+            Job Openings (JSON format):
             ${JSON.stringify(jobListings, null, 2)}
 
-            Your final output MUST be a valid JSON array. Each object in the array should represent a job and have the following structure: { "title": "...", "company": "...", "matchScore": ..., "reason": "...", "link": "..." }. Do not include any text or formatting outside of the JSON array itself.
+            Your response MUST be ONLY a single, valid JSON object. This object must have one key: "ranked_jobs".
+            The value of "ranked_jobs" must be a JSON array of job objects.
+            Each object in the array must have this exact structure, using snake_case for the score: { "title": "...", "company": "...", "match_score": ..., "reason": "...", "link": "..." }.
+            Do not include any text outside of the JSON object itself.
         `;
 
     // 4. 调用 Gemini API
