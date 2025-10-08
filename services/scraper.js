@@ -1,87 +1,103 @@
 const puppeteer = require("puppeteer");
-require("dotenv").config();
 
 /**
- * 抓取 Google 和 LinkedIn 上的职位信息
- * @param {string[]} keywords - 搜索关键词数组
- * @returns {Promise<object[]>} - 职位信息对象数组
+ * 自动向下滚动页面以加载更多内容。
+ * @param {import('puppeteer').Page} page - Puppeteer 页面对象。
+ * @param {number} scrollAttempts - 尝试滚动的次数。
  */
-async function scrapeJobSites(keywords) {
-  console.log("[Scraper] 启动浏览器...");
-  // puppeteer.launch() 可能会有一些平台相关的警告，通常可以忽略
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
-  const page = await browser.newPage();
-
-  // 设置一个真实的用户代理，减少被识别为机器人的几率
-  await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-  );
-
-  let allJobs = [];
-
-  // --- 抓取 Google Jobs ---
-  // 注意: 网页选择器 (selector) 非常脆弱，如果目标网站更新了页面结构，这里的代码就需要相应调整。
+const autoScroll = async (page, scrollAttempts = 10) => {
+  console.log(`[Scraper] 正在滚动页面以加载更多结果...`);
   try {
-    const googleQuery = keywords.join(" ") + " developer jobs";
-    console.log(`[Scraper] 正在抓取 Google, 搜索词: "${googleQuery}"`);
-    await page.goto(
-      `https://www.google.com/search?q=${encodeURIComponent(
-        googleQuery
-      )}&ibp=htl;jobs`,
-      { waitUntil: "networkidle2" }
-    );
+    for (let i = 0; i < scrollAttempts; i++) {
+      await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+      // 延长等待时间以确保内容加载
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  } catch (error) {
+    console.log(`[Scraper] 滚动时发生错误 (可忽略): ${error.message}`);
+  }
+};
 
-    // 等待职位列表的容器加载
-    await page.waitForSelector("div.gws-plugins-horizon-jobs__tl-lvc", {
-      timeout: 10000,
-    });
+/**
+ * 为单个关键词抓取 Google Jobs。
+ * @param {import('puppeteer').Page} page - Puppeteer 页面对象。
+ * @param {string} keyword - 搜索关键词。
+ */
+const scrapeGoogleForKeyword = async (page, keyword) => {
+  try {
+    const url = `https://www.google.com/search?q=${encodeURIComponent(
+      keyword
+    )}&ibp=htl;jobs`;
+    console.log(`[Scraper] 正在抓取 Google: ${keyword}`);
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    const googleJobs = await page.evaluate(() => {
-      const jobs = [];
-      // Google Jobs 的选择器会经常变化，这个选择器是基于某个时间点的结构
+    await autoScroll(page);
+
+    const jobs = await page.evaluate(() => {
+      const results = [];
+      // Google Jobs 的选择器很脆弱，li.iFjolb 是当前比较稳定的选择
       document.querySelectorAll("li.iFjolb").forEach((item) => {
-        const title = item.querySelector("div.BjJfJf.PUpOsf")?.innerText;
+        const title = item.querySelector("div.BjJfJf")?.innerText;
         const company = item.querySelector("div.vNEEBe")?.innerText;
-        const location = item.querySelector("div.Qk80Jf")?.innerText;
-        const link = item.closest("a")?.href;
-        if (title && company && link) {
-          jobs.push({ source: "Google", title, company, location, link });
+        // Google 的链接需要特殊处理，这里我们直接生成一个搜索链接
+        if (title && company) {
+          results.push({
+            title,
+            company,
+            link: `https://www.google.com/search?q=${encodeURIComponent(
+              title + " at " + company
+            )}&ibp=htl;jobs`,
+            description:
+              item.querySelector("div.YgLbBe")?.innerText || "无描述预览。",
+          });
         }
       });
-      return jobs.slice(0, 10); // 只取前10条
+      return results;
     });
-    console.log(`[Scraper] 从 Google 抓取到 ${googleJobs.length} 个职位。`);
-    allJobs = allJobs.concat(googleJobs);
+    console.log(
+      `[Scraper] 从 Google 为 "${keyword}" 找到 ${jobs.length} 个职位。`
+    );
+    return jobs;
   } catch (error) {
     console.error(
-      "[Scraper] 抓取 Google Jobs 时出错:",
+      `[Scraper] 抓取 Google 时出错 ("${keyword}"):`,
       error.message.split("\n")[0]
     );
-    console.log(
-      "[Scraper] 提示: Google Jobs 抓取失败，可能是页面结构已更新或出现了人机验证。"
-    );
+    return [];
   }
+};
 
-  // --- 抓取 LinkedIn Jobs ---
+/**
+ * 为单个关键词抓取 LinkedIn Jobs。
+ * @param {import('puppeteer').Page} page - Puppeteer 页面对象。
+ * @param {string} keyword - 搜索关键词。
+ */
+const scrapeLinkedInForKeyword = async (page, keyword) => {
   try {
-    const linkedinQuery = keywords.join(" ");
-    console.log(`[Scraper] 正在抓取 LinkedIn, 搜索词: "${linkedinQuery}"`);
-    await page.goto(
-      `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(
-        linkedinQuery
-      )}`,
-      { waitUntil: "networkidle2" }
-    );
+    const url = `https://www.linkedin.com/jobs/search?keywords=${encodeURIComponent(
+      keyword
+    )}`;
+    console.log(`[Scraper] 正在抓取 LinkedIn: ${keyword}`);
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    await page.waitForSelector("ul.jobs-search__results-list", {
-      timeout: 10000,
-    });
+    // 尝试点击 "See more jobs" 按钮
+    try {
+      const seeMoreButton = await page.$(
+        ".infinite-scroller__show-more-button"
+      );
+      if (seeMoreButton) {
+        console.log('[Scraper] 发现 "See more jobs" 按钮，正在点击...');
+        await seeMoreButton.click();
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // 等待加载
+      }
+    } catch (e) {
+      console.log('[Scraper] 未找到 "See more jobs" 按钮，直接滚动。');
+    }
 
-    const linkedinJobs = await page.evaluate(() => {
-      const jobs = [];
+    await autoScroll(page);
+
+    const jobs = await page.evaluate(() => {
+      const results = [];
       document.querySelectorAll("div.base-search-card").forEach((item) => {
         const title = item.querySelector(
           "h3.base-search-card__title"
@@ -89,33 +105,87 @@ async function scrapeJobSites(keywords) {
         const company = item.querySelector(
           "h4.base-search-card__subtitle"
         )?.innerText;
-        const location = item.querySelector(
-          "span.job-search-card__location"
-        )?.innerText;
         const link = item.querySelector("a.base-card__full-link")?.href;
         if (title && company && link) {
-          jobs.push({ source: "LinkedIn", title, company, location, link });
+          results.push({
+            title,
+            company,
+            link,
+            description:
+              item.querySelector("p.job-search-card__snippet")?.innerText ||
+              "无描述。",
+          });
         }
       });
-      return jobs.slice(0, 10); // 只取前10条
+      return results;
     });
-    console.log(`[Scraper] 从 LinkedIn 抓取到 ${linkedinJobs.length} 个职位。`);
-    allJobs = allJobs.concat(linkedinJobs);
+    console.log(
+      `[Scraper] 从 LinkedIn 为 "${keyword}" 找到 ${jobs.length} 个职位。`
+    );
+    return jobs;
   } catch (error) {
     console.error(
-      "[Scraper] 抓取 LinkedIn Jobs 时出错:",
+      `[Scraper] 抓取 LinkedIn 时出错 ("${keyword}"):`,
       error.message.split("\n")[0]
     );
-    console.log(
-      "[Scraper] 提示: LinkedIn Jobs 抓取失败，可能是需要登录或页面结构已更新。"
-    );
+    return [];
   }
+};
 
-  console.log("[Scraper] 关闭浏览器...");
-  await browser.close();
+/**
+ * 主抓取函数，协调所有抓取任务。
+ * @param {string[]} keywords - 搜索关键词数组。
+ */
+const scrapeJobSites = async (keywords) => {
+  console.log("[Scraper] 启动浏览器，开始所有抓取任务...");
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",
+        "--disable-gpu",
+      ],
+    });
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    );
 
-  console.log(`[Scraper] 抓取完成，共找到 ${allJobs.length} 个职位。`);
-  return allJobs;
-}
+    let allJobs = [];
+    for (const keyword of keywords) {
+      allJobs = allJobs.concat(await scrapeGoogleForKeyword(page, keyword));
+      allJobs = allJobs.concat(await scrapeLinkedInForKeyword(page, keyword));
+    }
+
+    // 基于职位标题和公司名称移除重复项
+    const uniqueJobs = allJobs.filter(
+      (job, index, self) =>
+        index ===
+        self.findIndex(
+          (j) => j.title === job.title && j.company === job.company
+        )
+    );
+
+    console.log(
+      `[Scraper] 所有平台抓取完毕，共找到 ${uniqueJobs.length} 个不重复的职位。`
+    );
+    return uniqueJobs;
+  } catch (error) {
+    console.error(`[Scraper] 在主抓取流程中发生严重错误:`, error);
+    return [];
+  } finally {
+    if (browser) {
+      console.log("[Scraper] 关闭浏览器。");
+      await browser.close();
+    }
+  }
+};
 
 module.exports = { scrapeJobSites };
