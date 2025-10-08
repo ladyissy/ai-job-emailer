@@ -1,0 +1,31 @@
+{
+  "name": "ai-job-hunter",
+  "version": "1.0.0",
+  "description": "一个使用 AI 代理自动筛选并推荐工作的个人助手。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "ai",
+    "jobs",
+    "automation",
+    "gemini",
+    "puppeteer"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.13",
+    "pdf-parse": "^1.1.1",
+    "puppeteer": "^22.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.2"
+  }
+}

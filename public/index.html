@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 求职助手 - 设置</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .file-input-label {
+        transition: all 0.2s ease-in-out;
+      }
+      .file-input-label:hover {
+        background-color: #e9e9e9;
+        border-color: #a0a0a0;
+      }
+      .spinner {
+        border-top-color: #3498db;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div
+      class="w-full max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 md:p-12 my-8"
+    >
+      <header class="text-center mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">
+          AI 求职助手
+        </h1>
+        <p class="text-gray-500 mt-2">
+          只需一次设置，让 AI 每天为您筛选最佳工作机会。
+        </p>
+      </header>
+
+      <form id="config-form" class="space-y-6">
+        <!-- 简历上传 -->
+        <div>
+          <label
+            for="resume-file"
+            class="block text-sm font-medium text-gray-700 mb-1"
+            >1. 上传您的简历</label
+          >
+          <label
+            class="file-input-label w-full flex flex-col items-center px-4 py-6 bg-white text-blue-500 rounded-lg shadow-sm tracking-wide border-2 border-dashed border-gray-300 cursor-pointer"
+          >
+            <svg
+              class="w-8 h-8"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+            >
+              <path
+                d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4 4-4-4h3V9h2v2z"
+              />
+            </svg>
+            <span
+              id="file-name"
+              class="mt-2 text-base leading-normal text-gray-600"
+              >选择一个 PDF 或 Word 文件</span
+            >
+            <input
+              type="file"
+              id="resume-file"
+              class="hidden"
+              accept=".pdf,.doc,.docx"
+            />
+          </label>
+        </div>
+
+        <!-- 职位关键词 -->
+        <div>
+          <label for="keywords" class="block text-sm font-medium text-gray-700"
+            >2. 职位关键词</label
+          >
+          <input
+            type="text"
+            id="keywords"
+            name="keywords"
+            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="例如: 前端工程师, React, Vue"
+          />
+          <p class="mt-1 text-xs text-gray-500">使用逗号分隔多个关键词。</p>
+        </div>
+
+        <!-- 目标邮箱 -->
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700"
+            >3. 接收报告的邮箱</label
+          >
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="your.email@example.com"
+          />
+        </div>
+
+        <!-- 报告时间 -->
+        <div>
+          <label
+            for="report-time"
+            class="block text-sm font-medium text-gray-700"
+            >4. 每日报告发送时间</label
+          >
+          <input
+            type="time"
+            id="report-time"
+            name="report-time"
+            value="08:00"
+            class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+
+        <!-- 保存按钮 -->
+        <div class="pt-4">
+          <button
+            type="submit"
+            class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300 transition-colors"
+          >
+            <span id="button-text">保存并启动</span>
+            <div
+              id="spinner"
+              class="spinner w-5 h-5 rounded-full border-2 border-t-transparent ml-3 hidden"
+            ></div>
+          </button>
+        </div>
+      </form>
+
+      <!-- 消息提示框 -->
+      <div
+        id="message-box"
+        class="hidden mt-6 p-4 rounded-md text-center"
+      ></div>
+    </div>
+
+    <script>
+      const form = document.getElementById("config-form");
+      const fileInput = document.getElementById("resume-file");
+      const fileNameSpan = document.getElementById("file-name");
+      const messageBox = document.getElementById("message-box");
+      const submitButton = form.querySelector('button[type="submit"]');
+      const buttonText = document.getElementById("button-text");
+      const spinner = document.getElementById("spinner");
+
+      // 更新文件名显示
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files.length > 0) {
+          fileNameSpan.textContent = fileInput.files[0].name;
+          fileNameSpan.classList.remove("text-gray-600");
+          fileNameSpan.classList.add("text-green-600", "font-semibold");
+        } else {
+          fileNameSpan.textContent = "选择一个 PDF 或 Word 文件";
+          fileNameSpan.classList.add("text-gray-600");
+          fileNameSpan.classList.remove("text-green-600", "font-semibold");
+        }
+      });
+
+      // 显示消息
+      function showMessage(message, type) {
+        messageBox.textContent = message;
+        messageBox.className = "mt-6 p-4 rounded-md text-center"; // Reset classes
+        if (type === "success") {
+          messageBox.classList.add("bg-green-100", "text-green-800");
+        } else {
+          messageBox.classList.add("bg-red-100", "text-red-800");
+        }
+        messageBox.classList.remove("hidden");
+      }
+
+      // 表单提交处理
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // 获取表单数据
+        const formData = new FormData();
+        const keywords = document.getElementById("keywords").value;
+        const email = document.getElementById("email").value;
+        const reportTime = document.getElementById("report-time").value;
+
+        // 基础验证
+        if (fileInput.files.length === 0) {
+          showMessage("请上传您的简历文件。", "error");
+          return;
+        }
+        if (!keywords || !email || !reportTime) {
+          showMessage("请填写所有必填字段。", "error");
+          return;
+        }
+
+        formData.append("resume", fileInput.files[0]);
+        formData.append("keywords", keywords);
+        formData.append("email", email);
+        formData.append("reportTime", reportTime);
+
+        // 按钮状态
+        submitButton.disabled = true;
+        buttonText.textContent = "正在保存...";
+        spinner.classList.remove("hidden");
+        messageBox.classList.add("hidden");
+
+        try {
+          // --- 关键：真实的后端 API 调用 ---
+          const response = await fetch("/api/config", {
+            method: "POST",
+            body: formData, // 直接发送 FormData 对象
+          });
+
+          const result = await response.json(); // 首先解析 response
+
+          if (response.ok) {
+            showMessage(result.message, "success");
+          } else {
+            throw new Error(result.message || "保存设置失败，请检查服务器。");
+          }
+        } catch (error) {
+          showMessage(error.message, "error");
+        } finally {
+          // 恢复按钮状态
+          submitButton.disabled = false;
+          buttonText.textContent = "保存并启动";
+          spinner.classList.add("hidden");
+        }
+      });
+    </script>
+  </body>
+</html>
