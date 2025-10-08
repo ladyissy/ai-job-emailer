@@ -81,7 +81,7 @@ const analyzeJobsWithAI = async (jobListings) => {
     console.log("[AI Analyzer] Calling Gemini API for analysis...");
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    let text = response.text();
 
     // 5. 解析 AI 返回的 JSON 结果
     console.log("[AI Analyzer] AI response received. Parsing JSON...");
