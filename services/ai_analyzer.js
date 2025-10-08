@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const pdf = require("pdf-parse");
+require("dotenv").config();
 
 /**
  * Decodes a Base64 encoded string into plain text.
@@ -20,20 +21,32 @@ const analyzeJobsWithAI = async (jobListings) => {
   console.log("[AI Analyzer] Starting job analysis...");
 
   try {
-    // 1. 从环境变量中获取 Gemini API Key 和简历的 Base64 编码
+    // 1. Validate environment variables
     const apiKey = process.env.GEMINI_API_KEY;
     const resumeBase64 = process.env.RESUME_BASE64;
 
-    if (!apiKey || !resumeBase64) {
-      console.error(
-        "[AI Analyzer] Error: GEMINI_API_KEY or RESUME_BASE64 environment variables are not set."
-      );
+    if (!apiKey) {
+      console.error("[AI Analyzer] Error: GEMINI_API_KEY environment variable is not set");
       return null;
     }
 
+    if (!resumeBase64) {
+      console.error("[AI Analyzer] Error: RESUME_BASE64 environment variable is not set");
+      return null;
+    }
+
+    // 2. Initialize Gemini client with validation
+    console.log("[AI Analyzer] Initializing Gemini client...");
     const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Verify API key format (basic check)
+    if (!apiKey.startsWith("AI") || apiKey.length < 40) {
+      console.error("[AI Analyzer] Error: Invalid Gemini API key format");
+      return null;
+    }
+
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash-preview-05-20",
+      model: "gemini-pro",  // Using stable model instead of preview
     });
 
     // 2. 解码 Base64 简历内容

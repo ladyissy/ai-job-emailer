@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const fs = require("fs");
 const path = require("path");
+require("dotenv").config();
 
 /**
  * 将 AI 分析结果格式化为 HTML 邮件并发送

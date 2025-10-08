@@ -1,4 +1,5 @@
 const puppeteer = require("puppeteer");
+require("dotenv").config();
 
 /**
  * 抓取 Google 和 LinkedIn 上的职位信息

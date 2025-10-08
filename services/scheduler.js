@@ -4,6 +4,7 @@ const path = require("path");
 const { scrapeJobSites } = require("./scraper"); // 1. 引入真实的 scraper
 const { analyzeJobsWithAI } = require("./ai_analyzer");
 const { sendReportEmail } = require("./mailer");
+require("dotenv").config();
 
 // 用于防止任务并发执行的锁
 let isTaskRunning = false;
