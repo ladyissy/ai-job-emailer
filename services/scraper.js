@@ -9,7 +9,10 @@ require("dotenv").config();
 async function scrapeJobSites(keywords) {
   console.log("[Scraper] 启动浏览器...");
   // puppeteer.launch() 可能会有一些平台相关的警告，通常可以忽略
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
   const page = await browser.newPage();
 
   // 设置一个真实的用户代理，减少被识别为机器人的几率
