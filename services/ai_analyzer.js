@@ -1,113 +1,79 @@
-const fs = require("fs");
-const path = require("path");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const pdf = require("pdf-parse");
 
 /**
- * 使用 Gemini AI 分析抓取到的职位列表与用户简历的匹配度
- * @param {object[]} jobListings - 从 scraper.js 获取的职位对象数组
- * @returns {Promise<object>} - AI 分析后的结果
+ * Decodes a Base64 encoded string into plain text.
+ * @param {string} base64String The Base64 encoded string.
+ * @returns {string} The decoded plain text.
  */
-async function analyzeJobsWithAI(jobListings) {
-  console.log("[AI Analyzer] 开始 AI 分析流程...");
+const decodeResume = (base64String) => {
+  // In a Node.js environment, we use Buffer to handle Base64 decoding.
+  return Buffer.from(base64String, "base64").toString("utf8");
+};
 
-  // 1. 读取配置文件以获取简历路径
-  const configPath = path.join(__dirname, "..", "config.json");
-  if (!fs.existsSync(configPath)) {
-    throw new Error("找不到 config.json 文件。");
-  }
-  const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-  const resumePath = path.join(__dirname, "..", config.resumePath);
-
-  if (!fs.existsSync(resumePath)) {
-    throw new Error(`找不到简历文件于: ${resumePath}`);
-  }
-
-  // 2. 解析简历 PDF 文件，提取文本内容
-  const dataBuffer = fs.readFileSync(resumePath);
-  const resumeData = await pdf(dataBuffer);
-  const resumeText = resumeData.text;
-  console.log("[AI Analyzer] 成功读取并解析简历内容。");
-
-  // 3. 构建发送给 Gemini API 的 Prompt
-  const prompt = `
-        **角色**: 你是一位专业的、经验丰富的技术招聘顾问和职业规划师。
-
-        **任务**: 基于以下用户的简历和今天抓取到的职位列表，请进行深入分析。你需要为每个职位评估其与简历的匹配度，并以清晰、结构化的 JSON 格式返回结果。
-
-        **用户简历核心内容**:
-        ---
-        ${resumeText.substring(0, 3000)} 
-        ---
-        (*为保证效率，只截取部分简历内容*)
-
-        **今日职位列表**:
-        ---
-        ${JSON.stringify(jobListings, null, 2)}
-        ---
-
-        **输出要求 (必须严格遵守)**:
-        1.  返回一个 JSON 对象，该对象包含一个名为 "ranked_jobs" 的数组。
-        2.  "ranked_jobs" 数组中的每个元素都是一个对象，代表一个职位。
-        3.  每个职位对象必须包含以下字段:
-            - "title": (String) 职位名称。
-            - "company": (String) 公司名称。
-            - "match_score": (Number) 匹配度得分，范围从 0 到 100，分数越高代表越匹配。
-            - "reason": (String) 为什么给出这个分数？用一句话简明扼要地总结匹配的关键点或不匹配的原因。
-            - "link": (String) 原始的职位链接。
-        4.  请根据 "match_score" 对 "ranked_jobs" 数组进行降序排序，最匹配的职位排在最前面。
-        5.  只分析和返回最多5个最匹配的职位。
-        6.  不要在你的最终输出中包含任何除了 JSON 对象以外的文字、解释或注释。
-    `;
-
-  console.log("[AI Analyzer] Prompt 已构建，准备调用 Gemini API...");
-
-  // 4. 调用 Gemini API
-  const apiKey = "AIzaSyDfHbOQOcF_n1sTQ1Of3ts9vN09S65T9ZA";
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-  const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
-  };
+/**
+ * Analyzes job listings against a resume using the Gemini AI.
+ * @param {Array<object>} jobListings - An array of job objects, each with title, company, and description.
+ * @returns {Promise<Array<object>|null>} A promise that resolves to an array of analyzed jobs with scores and reasons, or null if an error occurs.
+ */
+const analyzeJobsWithAI = async (jobListings) => {
+  console.log("[AI Analyzer] Starting job analysis...");
 
   try {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    // 1. 从环境变量中获取 Gemini API Key 和简历的 Base64 编码
+    const apiKey = process.env.GEMINI_API_KEY;
+    const resumeBase64 = process.env.RESUME_BASE64;
+
+    if (!apiKey || !resumeBase64) {
+      console.error(
+        "[AI Analyzer] Error: GEMINI_API_KEY or RESUME_BASE64 environment variables are not set."
+      );
+      return null;
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash-preview-05-20",
     });
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(
-        `API 请求失败，状态码: ${response.status}, 详情: ${errorBody}`
-      );
-    }
+    // 2. 解码 Base64 简历内容
+    console.log("[AI Analyzer] Decoding resume from Base64...");
+    const resumeText = decodeResume(resumeBase64);
+    console.log("[AI Analyzer] Resume decoded successfully.");
 
-    const result = await response.json();
-    const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    // 3. 构建详细的提示 (Prompt)
+    const prompt = `
+            Based on the following resume:
+            --- START RESUME ---
+            ${resumeText}
+            --- END RESUME ---
 
-    if (!rawText) {
-      console.error(
-        "Gemini API 返回了空内容。原始返回:",
-        JSON.stringify(result)
-      );
-      throw new Error("AI未能生成分析结果。");
-    }
+            Please act as a professional career consultant. Analyze the following list of job openings. For each job, provide a "matchScore" from 0 to 100 indicating how well my resume matches the job requirements, and a brief, one-sentence "reason" explaining your score.
 
-    console.log("[AI Analyzer] 成功从 Gemini API 获取到分析结果。");
+            The list of jobs is provided in this JSON format:
+            ${JSON.stringify(jobListings, null, 2)}
 
-    // 清理并解析AI返回的JSON字符串
-    const jsonString = rawText
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-    const analysisResult = JSON.parse(jsonString);
+            Your final output MUST be a valid JSON array. Each object in the array should represent a job and have the following structure: { "title": "...", "company": "...", "matchScore": ..., "reason": "...", "link": "..." }. Do not include any text or formatting outside of the JSON array itself.
+        `;
 
-    return analysisResult;
+    // 4. 调用 Gemini API
+    console.log("[AI Analyzer] Calling Gemini API for analysis...");
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // 5. 解析 AI 返回的 JSON 结果
+    console.log("[AI Analyzer] AI response received. Parsing JSON...");
+    const report = JSON.parse(text);
+
+    console.log(
+      `[AI Analyzer] Analysis complete. Found ${report.length} matched jobs.`
+    );
+    return report;
   } catch (error) {
-    console.error("[AI Analyzer] 调用 Gemini API 或解析结果时出错:", error);
-    throw error;
+    console.error("[AI Analyzer] An error occurred during AI analysis:", error);
+    return null;
   }
-}
+};
 
 module.exports = { analyzeJobsWithAI };

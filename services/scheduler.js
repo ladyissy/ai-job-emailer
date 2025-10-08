@@ -19,26 +19,29 @@ const runJobSearchProcess = async () => {
   console.log("--------------------------------------------------");
   console.log(`[${new Date().toLocaleString()}] 定时任务触发！`);
 
-  const configPath = path.join(__dirname, "..", "config.json");
-  if (!fs.existsSync(configPath)) {
-    console.error("[Scheduler] 错误: 找不到 config.json，任务无法执行。");
-    isTaskRunning = false;
-    return;
-  }
-
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    const { keywords } = config;
+    // 第 1 步: 从环境变量中读取配置信息
+    console.log(
+      "[Scheduler] Reading configuration from environment variables..."
+    );
+    const keywords = process.env.SEARCH_KEYWORDS;
+    const targetEmail = process.env.TARGET_EMAIL;
 
-    if (!keywords || keywords.length === 0) {
-      console.error("[Scheduler] 错误: 配置文件中没有关键词，任务无法执行。");
-      isTaskRunning = false;
+    // 验证环境变量是否存在
+    if (!keywords || !targetEmail) {
+      console.error(
+        "[Scheduler] Error: SEARCH_KEYWORDS or TARGET_EMAIL environment variables are not set."
+      );
       return;
     }
+    const keywordList = keywords.split(",").map((k) => k.trim());
+
+    console.log(`[Scheduler] Keywords: ${keywordList.join(", ")}`);
+    console.log(`[Scheduler] Target Email: ${targetEmail}`);
 
     // 2. 调用 scraper 抓取招聘信息
     console.log("[Scheduler] 步骤 1: 开始抓取网站...");
-    const jobListings = await scrapeJobSites(keywords);
+    const jobListings = await scrapeJobSites(keywordList);
 
     if (jobListings.length === 0) {
       console.log("[Scheduler] 未抓取到任何职位信息，本次任务结束。");
@@ -60,7 +63,7 @@ const runJobSearchProcess = async () => {
     console.log(JSON.stringify(analysisResult, null, 2));
 
     console.log("[Scheduler] 步骤 3: 生成求职报告，发送报告邮件...");
-    await sendReportEmail(analysisResult);
+    await sendReportEmail(analysisResult, targetEmail);
 
     console.log("[Scheduler] 本次任务流程结束。");
     console.log("--------------------------------------------------");
@@ -73,36 +76,14 @@ const runJobSearchProcess = async () => {
 
 let scheduledTask = null;
 
+// (这个函数在 Render 的 Cron Job 环境中不会被直接使用)
 const startScheduler = () => {
-  // 如果已有任务在运行，先停止它
-  if (scheduledTask) {
-    scheduledTask.stop();
-  }
-
-  const configPath = path.join(__dirname, "..", "config.json");
-  if (!fs.existsSync(configPath)) {
-    console.log("[Scheduler] 配置文件 (config.json) 不存在，调度器未启动。");
-    return;
-  }
-
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    const { reportTime } = config;
-    if (!reportTime || !/^\d{2}:\d{2}$/.test(reportTime)) {
-      console.error("[Scheduler] 报告时间格式不正确，调度器无法启动。");
-      return;
-    }
-    const [hour, minute] = reportTime.split(":");
-    const cronExpression = `${minute} ${hour} * * *`;
-
-    scheduledTask = cron.schedule(cronExpression, runJobSearchProcess);
-
-    console.log(
-      `[Scheduler] 定时任务已更新！将在每天 ${hour}:${minute} 为您执行求职任务。`
-    );
-  } catch (error) {
-    console.error("[Scheduler] 启动调度器时出错:", error);
-  }
+  console.log(
+    "Scheduler loaded. In a server environment, this would set up a cron job."
+  );
+  console.log(
+    "For Render, the start command triggers `runJobSearchProcess` directly."
+  );
 };
 
 module.exports = { startScheduler, runJobSearchProcess };

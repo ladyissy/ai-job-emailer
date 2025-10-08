@@ -6,20 +6,8 @@ const path = require("path");
  * 将 AI 分析结果格式化为 HTML 邮件并发送
  * @param {object} analysisResult - 从 ai_analyzer.js 获取的包含 ranked_jobs 数组的对象
  */
-async function sendReportEmail(analysisResult) {
+async function sendReportEmail(analysisResult, recipientEmail) {
   console.log("[Email Sender] 开始发送求职报告邮件...");
-
-  // 1. 读取配置文件以获取收件人邮箱
-  const configPath = path.join(__dirname, "..", "config.json");
-  if (!fs.existsSync(configPath)) {
-    throw new Error("找不到 config.json 文件。");
-  }
-  const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-  const recipientEmail = config.email;
-
-  if (!recipientEmail) {
-    throw new Error("配置文件中未找到收件人邮箱地址。");
-  }
 
   // --- 邮件服务配置 (重要！) ---
   // 您需要一个支持 SMTP 的邮箱服务来发送邮件。
